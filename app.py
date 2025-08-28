@@ -199,7 +199,6 @@ def create_payment_intent():
         stripe_data = {
             "amount": str(amount),
             "currency": currency,
-            "payment_method_types[]": "card",
             "automatic_payment_methods[enabled]": "true"
         }
         
