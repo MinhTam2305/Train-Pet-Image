@@ -29,5 +29,5 @@ features.pkl
 # Firebase download (only needed for /train endpoint)
 firebase_download.py
 
-# Large data directory (rebuild features at runtime or use external storage)
-data/
+# Keep data directory for building features
+# data/

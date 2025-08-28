@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PetFinder - Tìm Kiếm Thú Cưng Thông Minh</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Floating paw prints animation */
+        .paw-prints {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .paw {
+            position: absolute;
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.1);
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        .container {
+            position: relative;
+            z-index: 2;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .hero-section {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 25px;
+            padding: 50px 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            font-size: 3rem;
+            color: #4a90e2;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .title {
+            font-size: 2.5rem;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .upload-area {
+            border: 3px dashed #4a90e2;
+            border-radius: 15px;
+            padding: 40px;
+            margin: 30px 0;
+            background: rgba(74, 144, 226, 0.05);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area:hover {
+            border-color: #357abd;
+            background: rgba(74, 144, 226, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: #357abd;
+            background: rgba(74, 144, 226, 0.15);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #4a90e2;
+            margin-bottom: 20px;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+
+        .upload-text {
+            font-size: 1.1rem;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #4a90e2, #357abd);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(74, 144, 226, 0.3);
+            margin: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(74, 144, 226, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 40px;
+            width: 100%;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            color: #4a90e2;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4a90e2;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+            margin-top: 30px;
+            width: 100%;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .result-item {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .result-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .result-image {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+
+        .result-info {
+            padding: 15px;
+            text-align: center;
+        }
+
+        .similarity-score {
+            background: linear-gradient(45deg, #4a90e2, #357abd);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2rem;
+            }
+            
+            .hero-section {
+                padding: 30px 20px;
+            }
+            
+            .upload-area {
+                padding: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="paw-prints">
+        <div class="paw" style="left: 10%; animation-delay: 0s;">🐾</div>
+        <div class="paw" style="left: 20%; animation-delay: 2s;">🐾</div>
+        <div class="paw" style="left: 30%; animation-delay: 4s;">🐾</div>
+        <div class="paw" style="left: 40%; animation-delay: 6s;">🐾</div>
+        <div class="paw" style="left: 50%; animation-delay: 8s;">🐾</div>
+        <div class="paw" style="left: 60%; animation-delay: 10s;">🐾</div>
+        <div class="paw" style="left: 70%; animation-delay: 12s;">🐾</div>
+        <div class="paw" style="left: 80%; animation-delay: 14s;">🐾</div>
+        <div class="paw" style="left: 90%; animation-delay: 16s;">🐾</div>
+    </div>
+
+    <div class="container">
+        <div class="hero-section">
+            <div class="logo">🐕🐱 PetFinder</div>
+            <h1 class="title">Tìm Kiếm Thú Cưng Thông Minh</h1>
+            <p class="subtitle">
+                Tải lên hình ảnh thú cưng của bạn và khám phá những bạn tương tự! 
+                <br>Sử dụng AI để tìm kiếm dựa trên màu sắc và đặc điểm hình ảnh.
+            </p>
+
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📸</div>
+                <div class="upload-text">Kéo thả hình ảnh vào đây hoặc click để chọn</div>
+                <div style="color: #999; font-size: 0.9rem;">Hỗ trợ: JPG, PNG, GIF (Max: 10MB)</div>
+                <input type="file" id="fileInput" class="file-input" accept="image/*">
+            </div>
+
+            <button class="btn" onclick="document.getElementById('fileInput').click()">
+                📂 Chọn Hình Ảnh
+            </button>
+            <button class="btn" onclick="searchImage()" id="searchBtn" disabled>
+                🔍 Tìm Kiếm
+            </button>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div>Đang tìm kiếm thú cưng tương tự...</div>
+            </div>
+
+            <div class="results" id="results">
+                <h3 style="color: #333; margin-bottom: 15px;">🎯 Kết Quả Tìm Kiếm</h3>
+                <div class="result-grid" id="resultGrid"></div>
+            </div>
+        </div>
+
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>AI Thông Minh</h3>
+                <p>Sử dụng thuật toán computer vision để phân tích màu sắc và đặc điểm hình ảnh</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Tìm Kiếm Nhanh</h3>
+                <p>Kết quả trong vài giây với độ chính xác cao và giao diện thân thiện</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3>Độ Tương Đồng Cao</h3>
+                <p>Hiển thị điểm số tương đồng để bạn dễ dàng so sánh và lựa chọn</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+
+        // File input handling
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                selectedFile = e.target.files[0];
+                document.getElementById('searchBtn').disabled = false;
+                document.querySelector('.upload-text').textContent = `✅ Đã chọn: ${selectedFile.name}`;
+                document.querySelector('.upload-icon').textContent = '✅';
+            }
+        });
+
+        // Drag and drop handling
+        const uploadArea = document.getElementById('uploadArea');
+        
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            if (e.dataTransfer.files.length > 0) {
+                selectedFile = e.dataTransfer.files[0];
+                document.getElementById('fileInput').files = e.dataTransfer.files;
+                document.getElementById('searchBtn').disabled = false;
+                document.querySelector('.upload-text').textContent = `✅ Đã chọn: ${selectedFile.name}`;
+                document.querySelector('.upload-icon').textContent = '✅';
+            }
+        });
+
+        uploadArea.addEventListener('click', function() {
+            document.getElementById('fileInput').click();
+        });
+
+        // Search function
+        async function searchImage() {
+            if (!selectedFile) {
+                alert('Vui lòng chọn hình ảnh trước!');
+                return;
+            }
+
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const searchBtn = document.getElementById('searchBtn');
+
+            // Show loading
+            loading.style.display = 'block';
+            results.style.display = 'none';
+            searchBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+
+                const response = await fetch('/search', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.similar_images) {
+                    displayResults(data.similar_images);
+                } else {
+                    throw new Error(data.error || data.message || 'Không tìm thấy kết quả');
+                }
+            } catch (error) {
+                alert(`Lỗi: ${error.message}`);
+                console.error('Search error:', error);
+            } finally {
+                loading.style.display = 'none';
+                searchBtn.disabled = false;
+            }
+        }
+
+        // Display results
+        function displayResults(similarImages) {
+            const results = document.getElementById('results');
+            const resultGrid = document.getElementById('resultGrid');
+
+            resultGrid.innerHTML = '';
+
+            if (similarImages.length === 0) {
+                resultGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #666;">Không tìm thấy thú cưng tương tự nào 😢</div>';
+            } else {
+                similarImages.forEach(item => {
+                    const resultItem = document.createElement('div');
+                    resultItem.className = 'result-item';
+                    
+                    const imageName = item.image_path.split('/').pop();
+                    const similarity = (item.similarity * 100).toFixed(1);
+                    
+                    resultItem.innerHTML = `
+                        <img src="/image/${encodeURIComponent(item.image_path)}" 
+                             alt="${imageName}" 
+                             class="result-image"
+                             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22150%22><rect width=%22100%25%22 height=%22100%25%22 fill=%22%23ddd%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.35em%22 fill=%22%23999%22>🐾 ${imageName}</text></svg>'">
+                        <div class="result-info">
+                            <div style="font-weight: bold; margin-bottom: 8px;">${imageName}</div>
+                            <div class="similarity-score">${similarity}% tương đồng</div>
+                        </div>
+                    `;
+                    
+                    resultGrid.appendChild(resultItem);
+                });
+            }
+
+            results.style.display = 'block';
+            results.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

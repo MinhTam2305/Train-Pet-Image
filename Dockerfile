@@ -12,8 +12,8 @@ RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 COPY . /app
 
 # build lightweight features at image build time (optional)
-# keep this non-fatal so image build doesn't fail if data is missing
-RUN python build_features_light.py || true
+# Force rebuild even if file exists since data/ might be new
+RUN python build_features_light.py
 
 EXPOSE 5000
 CMD ["gunicorn", "app:app", "-b", "0.0.0.0:5000"]

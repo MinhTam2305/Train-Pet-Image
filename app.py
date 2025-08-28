@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template, send_file
 from flask_cors import CORS
 import os
 USE_LIGHT = os.environ.get('LIGHT_MODE', '1') in ('1', 'true', 'True')
@@ -17,6 +17,17 @@ CORS(app, resources={r"/search": {"origins": "*"}})
 # prefer light-weight features file when LIGHT_MODE is enabled
 features_file = os.environ.get('FEATURES_FILE') or ('features_light.pkl' if USE_LIGHT else 'features.pkl')
 features_dict = load_saved_features(features_file)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/image/<path:filename>')
+def serve_image(filename):
+    try:
+        return send_file(filename)
+    except:
+        return "Image not found", 404
 
 @app.route('/search', methods=['POST'])
 def search_image():
