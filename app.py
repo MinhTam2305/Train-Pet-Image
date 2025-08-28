@@ -70,16 +70,72 @@ def search_image():
 @app.route('/train', methods=['POST'])
 def train_features():
     try:
-        # Import TensorFlow-based feature extraction only when needed
-        from dactrung import extract_and_save_features
+        if USE_LIGHT:
+            # Train light features (color histogram)
+            import subprocess
+            result = subprocess.run(['python', 'build_features_light.py'], 
+                                  capture_output=True, text=True, check=True)
+            
+            # Reload features
+            global features_dict
+            features_dict = load_saved_features('features_light.pkl')
+            
+            return jsonify({
+                'message': 'Light training completed!', 
+                'mode': 'LIGHT_MODE',
+                'features_count': len(features_dict),
+                'output': result.stdout
+            }), 200
+        else:
+            # Import TensorFlow-based feature extraction only when needed
+            from dactrung import extract_and_save_features
+            
+            # Tải toàn bộ ảnh mới nhất từ Firebase Storage về trước khi train
+            subprocess.run(['python', 'firebase_download.py'], check=True)
+            # Train lại đặc trưng cho toàn bộ ảnh trong data/
+            extract_and_save_features('data/', 'features.pkl')
+            global features_dict
+            features_dict = load_saved_features('features.pkl')
+            return jsonify({
+                'message': 'TensorFlow training completed!',
+                'mode': 'TENSORFLOW_MODE', 
+                'features_count': len(features_dict)
+            }), 200
+    except Exception as e:
+        return jsonify({'error': str(e), 'mode': 'LIGHT_MODE' if USE_LIGHT else 'TENSORFLOW_MODE'}), 500
+
+@app.route('/train/light', methods=['POST'])
+def train_light_features():
+    """Force train with light mode (color histogram) regardless of current mode"""
+    try:
+        import subprocess
+        result = subprocess.run(['python', 'build_features_light.py'], 
+                              capture_output=True, text=True, check=True)
         
-        # Tải toàn bộ ảnh mới nhất từ Firebase Storage về trước khi train
-        subprocess.run(['python', 'firebase_download.py'], check=True)
-        # Train lại đặc trưng cho toàn bộ ảnh trong data/
-        extract_and_save_features('data/', 'features.pkl')
-        global features_dict
-        features_dict = load_saved_features('features.pkl')
-        return jsonify({'message': 'Training completed!'}), 200
+        # Count features
+        import pickle
+        with open('features_light.pkl', 'rb') as f:
+            light_features = pickle.load(f)
+        
+        return jsonify({
+            'message': 'Light features training completed!',
+            'features_count': len(light_features),
+            'output': result.stdout
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/status', methods=['GET'])
+def get_status():
+    """Get current app status and features info"""
+    try:
+        return jsonify({
+            'status': 'running',
+            'mode': 'LIGHT_MODE' if USE_LIGHT else 'TENSORFLOW_MODE',
+            'features_file': features_file,
+            'features_count': len(features_dict),
+            'sample_images': list(features_dict.keys())[:5] if features_dict else []
+        }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
