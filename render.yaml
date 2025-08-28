@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: trainimagepet
+    env: docker
+    branch: main
+    dockerfilePath: ./Dockerfile
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: LIGHT_MODE
+        value: "1"
+      - key: FEATURES_FILE
+        value: features_light.pkl

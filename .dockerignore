@@ -1,0 +1,15 @@
+__pycache__
+.venv
+.env
+venv
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+*.log
+node_modules
+serviceAccountKey.json
+serviceAccountKey.json
+data/
+.git
