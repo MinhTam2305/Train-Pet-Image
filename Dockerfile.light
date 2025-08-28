@@ -1,0 +1,24 @@
+# Lightweight Dockerfile - only for LIGHT_MODE deployment
+# Excludes TensorFlow and heavy dependencies
+
+FROM python:3.11-slim
+WORKDIR /app
+
+# Create minimal requirements for light mode only
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy only essential files for light mode
+COPY app.py ./
+COPY result_light.py ./
+COPY build_features_light.py ./
+COPY features_light.pkl ./
+
+# Set environment for light mode
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    LIGHT_MODE=1 \
+    FEATURES_FILE=features_light.pkl
+
+EXPOSE 5000
+CMD ["gunicorn", "app:app", "-b", "0.0.0.0:5000"]

@@ -10,6 +10,24 @@ venv
 *.log
 node_modules
 serviceAccountKey.json
-serviceAccountKey.json
-data/
+cert.pem
+key.pem
+temp_*.jpg
+temp_*.png
 .git
+.gitignore
+README.md
+cleanup.ps1
+init_repo.ps1
+test_smoke.py
+
+# TensorFlow files (not needed in LIGHT_MODE)
+dactrung.py
+result.py
+features.pkl
+
+# Firebase download (only needed for /train endpoint)
+firebase_download.py
+
+# Large data directory (rebuild features at runtime or use external storage)
+data/
