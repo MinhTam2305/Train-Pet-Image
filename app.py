@@ -1,6 +1,19 @@
 from flask import Flask, request, jsonify, render_template, send_file
 from flask_cors import CORS
 import os
+import json
+import requests
+from datetime import datetime
+import uuid
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    print("⚠️  python-dotenv not installed. Environment variables will be loaded from system only.")
+    print("   Install with: pip install python-dotenv")
+
 USE_LIGHT = os.environ.get('LIGHT_MODE', '1') in ('1', 'true', 'True')
 
 if USE_LIGHT:
@@ -13,10 +26,22 @@ from PIL import Image
 import subprocess
 
 app = Flask(__name__)
-CORS(app, resources={r"/search": {"origins": "*"}}) 
+CORS(app, resources={
+    r"/search": {"origins": "*"},
+    r"/payment/*": {"origins": "*"}
+}) 
 # prefer light-weight features file when LIGHT_MODE is enabled
 features_file = os.environ.get('FEATURES_FILE') or ('features_light.pkl' if USE_LIGHT else 'features.pkl')
 features_dict = load_saved_features(features_file)
+
+# Stripe configuration
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_API_URL = "https://api.stripe.com/v1"
+
+if not STRIPE_SECRET_KEY:
+    print("⚠️  WARNING: STRIPE_SECRET_KEY environment variable not set!")
+    print("   Please set STRIPE_SECRET_KEY in your environment or .env file")
+    print("   Payment functionality will not work without this key")
 
 @app.route('/')
 def index():
@@ -135,6 +160,186 @@ def get_status():
             'features_count': len(features_dict),
             'sample_images': list(features_dict.keys())[:5] if features_dict else []
         }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ============ PAYMENT APIs ============
+
+@app.route('/payment/create-intent', methods=['POST'])
+def create_payment_intent():
+    """Create Stripe Payment Intent"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data or 'amount' not in data:
+            return jsonify({'error': 'Amount is required'}), 400
+            
+        amount = data['amount']  # Amount in cents
+        currency = data.get('currency', 'usd')
+        
+        # Create payment intent with Stripe
+        stripe_data = {
+            "amount": str(amount),
+            "currency": currency,
+            "payment_method_types[]": "card",
+            "automatic_payment_methods[enabled]": "true"
+        }
+        
+        headers = {
+            "Authorization": f"Bearer {STRIPE_SECRET_KEY}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+        
+        response = requests.post(
+            f"{STRIPE_API_URL}/payment_intents",
+            data=stripe_data,
+            headers=headers
+        )
+        
+        if response.status_code != 200:
+            return jsonify({
+                'error': 'Failed to create payment intent',
+                'details': response.text
+            }), 400
+            
+        payment_intent = response.json()
+        
+        return jsonify({
+            'client_secret': payment_intent['client_secret'],
+            'payment_intent_id': payment_intent['id'],
+            'amount': payment_intent['amount'],
+            'currency': payment_intent['currency']
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/payment/confirm', methods=['POST'])
+def confirm_payment():
+    """Confirm payment and save order"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['payment_intent_id', 'order_data']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'{field} is required'}), 400
+        
+        payment_intent_id = data['payment_intent_id']
+        order_data = data['order_data']
+        
+        # Verify payment with Stripe
+        headers = {
+            "Authorization": f"Bearer {STRIPE_SECRET_KEY}",
+        }
+        
+        stripe_response = requests.get(
+            f"{STRIPE_API_URL}/payment_intents/{payment_intent_id}",
+            headers=headers
+        )
+        
+        if stripe_response.status_code != 200:
+            return jsonify({
+                'error': 'Failed to verify payment',
+                'details': stripe_response.text
+            }), 400
+            
+        payment_intent = stripe_response.json()
+        
+        # Check if payment is successful
+        if payment_intent['status'] != 'succeeded':
+            return jsonify({
+                'error': 'Payment not completed',
+                'status': payment_intent['status']
+            }), 400
+        
+        # Generate order ID
+        order_id = str(uuid.uuid4())
+        
+        # Prepare order data
+        order_record = {
+            'order_id': order_id,
+            'payment_intent_id': payment_intent_id,
+            'amount': payment_intent['amount'],
+            'currency': payment_intent['currency'],
+            'status': 'completed',
+            'customer_info': order_data.get('customer_info', {}),
+            'items': order_data.get('items', []),
+            'total_amount': order_data.get('total_amount', 0),
+            'payment_method': 'stripe',
+            'created_at': datetime.now().isoformat(),
+            'metadata': order_data.get('metadata', {})
+        }
+        
+        # Save order to file (you can replace this with database storage)
+        orders_file = 'orders.json'
+        orders = []
+        
+        if os.path.exists(orders_file):
+            try:
+                with open(orders_file, 'r', encoding='utf-8') as f:
+                    orders = json.load(f)
+            except:
+                orders = []
+        
+        orders.append(order_record)
+        
+        with open(orders_file, 'w', encoding='utf-8') as f:
+            json.dump(orders, f, indent=2, ensure_ascii=False)
+        
+        return jsonify({
+            'success': True,
+            'order_id': order_id,
+            'payment_status': 'completed',
+            'message': 'Payment confirmed and order saved successfully'
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/payment/orders', methods=['GET'])
+def get_orders():
+    """Get all orders"""
+    try:
+        orders_file = 'orders.json'
+        
+        if not os.path.exists(orders_file):
+            return jsonify({'orders': []}), 200
+            
+        with open(orders_file, 'r', encoding='utf-8') as f:
+            orders = json.load(f)
+            
+        # Optional: filter by email or user
+        email = request.args.get('email')
+        if email:
+            orders = [order for order in orders if order.get('customer_info', {}).get('email') == email]
+            
+        return jsonify({'orders': orders}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/payment/orders/<order_id>', methods=['GET'])
+def get_order(order_id):
+    """Get specific order by ID"""
+    try:
+        orders_file = 'orders.json'
+        
+        if not os.path.exists(orders_file):
+            return jsonify({'error': 'Order not found'}), 404
+            
+        with open(orders_file, 'r', encoding='utf-8') as f:
+            orders = json.load(f)
+            
+        order = next((o for o in orders if o['order_id'] == order_id), None)
+        
+        if not order:
+            return jsonify({'error': 'Order not found'}), 404
+            
+        return jsonify({'order': order}), 200
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
