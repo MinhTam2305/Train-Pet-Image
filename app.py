@@ -69,6 +69,7 @@ def search_image():
 
 @app.route('/train', methods=['POST'])
 def train_features():
+    global features_dict  # Declare at the beginning
     try:
         if USE_LIGHT:
             # Train light features (color histogram)
@@ -77,7 +78,6 @@ def train_features():
                                   capture_output=True, text=True, check=True)
             
             # Reload features
-            global features_dict
             features_dict = load_saved_features('features_light.pkl')
             
             return jsonify({
@@ -94,7 +94,6 @@ def train_features():
             subprocess.run(['python', 'firebase_download.py'], check=True)
             # Train lại đặc trưng cho toàn bộ ảnh trong data/
             extract_and_save_features('data/', 'features.pkl')
-            global features_dict
             features_dict = load_saved_features('features.pkl')
             return jsonify({
                 'message': 'TensorFlow training completed!',
