@@ -27,8 +27,12 @@ import subprocess
 
 app = Flask(__name__)
 CORS(app, resources={
-    r"/search": {"origins": "*"},
-    r"/payment/*": {"origins": "*"}
+    r"/*": {
+        "origins": ["*"],  # Allow all origins for development
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+        "supports_credentials": False
+    }
 }) 
 # prefer light-weight features file when LIGHT_MODE is enabled
 features_file = os.environ.get('FEATURES_FILE') or ('features_light.pkl' if USE_LIGHT else 'features.pkl')
@@ -149,19 +153,32 @@ def train_light_features():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/status', methods=['GET'])
+@app.route('/status', methods=['GET', 'OPTIONS'])
 def get_status():
     """Get current app status and features info"""
     try:
-        return jsonify({
+        response_data = {
             'status': 'running',
             'mode': 'LIGHT_MODE' if USE_LIGHT else 'TENSORFLOW_MODE',
             'features_file': features_file,
             'features_count': len(features_dict),
-            'sample_images': list(features_dict.keys())[:5] if features_dict else []
-        }), 200
+            'sample_images': list(features_dict.keys())[:5] if features_dict else [],
+            'cors_enabled': True,  # Debug info
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        response = jsonify(response_data)
+        
+        # Add explicit CORS headers
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        
+        return response, 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        error_response = jsonify({'error': str(e)})
+        error_response.headers['Access-Control-Allow-Origin'] = '*'
+        return error_response, 500
 
 # ============ PAYMENT APIs ============
 
