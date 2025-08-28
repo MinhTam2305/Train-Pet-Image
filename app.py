@@ -10,7 +10,6 @@ else:
     from result import load_saved_features, find_similar_images
 import os
 from PIL import Image
-from dactrung import extract_and_save_features
 import subprocess
 
 app = Flask(__name__)
@@ -60,6 +59,9 @@ def search_image():
 @app.route('/train', methods=['POST'])
 def train_features():
     try:
+        # Import TensorFlow-based feature extraction only when needed
+        from dactrung import extract_and_save_features
+        
         # Tải toàn bộ ảnh mới nhất từ Firebase Storage về trước khi train
         subprocess.run(['python', 'firebase_download.py'], check=True)
         # Train lại đặc trưng cho toàn bộ ảnh trong data/
