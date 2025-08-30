@@ -315,6 +315,135 @@ def confirm_payment():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/payment/create-checkout-session', methods=['POST'])
+def create_checkout_session():
+    """Create Stripe Checkout Session"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['amount', 'customer_info', 'items', 'success_url', 'cancel_url']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'{field} is required'}), 400
+                
+        amount = data['amount']  # Amount in cents
+        currency = data.get('currency', 'usd')
+        customer_info = data['customer_info']
+        items = data['items']
+        success_url = data['success_url']
+        cancel_url = data['cancel_url']
+        metadata = data.get('metadata', {})
+        
+        # Prepare line items for Stripe
+        line_items = []
+        for item in items:
+            price_data = {
+                "currency": currency,
+                "product_data": {
+                    "name": item.get('name', 'Pet'),
+                    "description": f"Breed: {item.get('breed', 'Unknown')}",
+                },
+                "unit_amount": int(float(item.get('price', 0)) * 100),  # Convert to cents
+            }
+            
+            if item.get('imageUrl'):
+                price_data["product_data"]["images"] = [item['imageUrl']]
+            
+            line_items.append({
+                "price_data": price_data,
+                "quantity": item.get('quantity', 1),
+            })
+        
+        # Create checkout session data
+        checkout_data = {
+            "payment_method_types[]": "card",
+            "mode": "payment",
+            "success_url": success_url + "?session_id={CHECKOUT_SESSION_ID}",
+            "cancel_url": cancel_url,
+            "customer_email": customer_info.get('email', ''),
+            "billing_address_collection": "required",
+            "shipping_address_collection[allowed_countries][]": "US",
+            "shipping_address_collection[allowed_countries][]": "VN",
+        }
+        
+        # Add line items
+        for i, item in enumerate(line_items):
+            checkout_data[f"line_items[{i}][price_data][currency]"] = item["price_data"]["currency"]
+            checkout_data[f"line_items[{i}][price_data][product_data][name]"] = item["price_data"]["product_data"]["name"]
+            checkout_data[f"line_items[{i}][price_data][product_data][description]"] = item["price_data"]["product_data"].get("description", "")
+            checkout_data[f"line_items[{i}][price_data][unit_amount]"] = str(item["price_data"]["unit_amount"])
+            checkout_data[f"line_items[{i}][quantity]"] = str(item["quantity"])
+            
+            if "images" in item["price_data"]["product_data"]:
+                for j, image_url in enumerate(item["price_data"]["product_data"]["images"]):
+                    checkout_data[f"line_items[{i}][price_data][product_data][images][{j}]"] = image_url
+        
+        # Add metadata
+        metadata.update({
+            'customer_name': customer_info.get('name', ''),
+            'customer_phone': customer_info.get('phone', ''),
+            'customer_address': customer_info.get('address', ''),
+            'order_source': 'flutter_web_checkout'
+        })
+        
+        for key, value in metadata.items():
+            checkout_data[f"metadata[{key}]"] = str(value)
+        
+        headers = {
+            "Authorization": f"Bearer {STRIPE_SECRET_KEY}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+        
+        response = requests.post(
+            f"{STRIPE_API_URL}/checkout/sessions",
+            data=checkout_data,
+            headers=headers
+        )
+        
+        if response.status_code != 200:
+            return jsonify({
+                'error': 'Failed to create checkout session',
+                'details': response.text
+            }), 400
+            
+        session = response.json()
+        
+        # Save session info for later reference
+        session_record = {
+            'session_id': session['id'],
+            'customer_info': customer_info,
+            'items': items,
+            'amount': amount,
+            'currency': currency,
+            'created_at': datetime.now().isoformat(),
+            'metadata': metadata
+        }
+        
+        # Save to sessions file
+        sessions_file = 'checkout_sessions.json'
+        sessions = []
+        
+        if os.path.exists(sessions_file):
+            try:
+                with open(sessions_file, 'r', encoding='utf-8') as f:
+                    sessions = json.load(f)
+            except:
+                sessions = []
+        
+        sessions.append(session_record)
+        
+        with open(sessions_file, 'w', encoding='utf-8') as f:
+            json.dump(sessions, f, indent=2, ensure_ascii=False)
+        
+        return jsonify({
+            'checkout_url': session['url'],
+            'session_id': session['id']
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/payment/orders', methods=['GET'])
 def get_orders():
     """Get all orders"""
