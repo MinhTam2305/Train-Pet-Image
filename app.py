@@ -355,13 +355,18 @@ def create_checkout_session():
                 "quantity": item.get('quantity', 1),
             })
         
+        # Validate and clean customer email
+        customer_email = customer_info.get('email', '').strip()
+        if not customer_email or '@' not in customer_email:
+            customer_email = 'guest@petshop.com'  # Default email for guests
+        
         # Create checkout session data
         checkout_data = {
             "payment_method_types[]": "card",
             "mode": "payment",
             "success_url": success_url + "?session_id={CHECKOUT_SESSION_ID}",
             "cancel_url": cancel_url,
-            "customer_email": customer_info.get('email', ''),
+            "customer_email": customer_email,
             "billing_address_collection": "required",
             "shipping_address_collection[allowed_countries][]": "US",
             "shipping_address_collection[allowed_countries][]": "VN",
